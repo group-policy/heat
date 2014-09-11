@@ -14,6 +14,7 @@
 #    under the License.
 
 from heat.engine import attributes
+from heat.engine import constraints
 from heat.engine import properties
 from heat.engine.resources.neutron import neutron
 
@@ -95,7 +96,7 @@ class Endpoint(neutron.NeutronResource):
         try:
             client.delete_endpoint(ep_id)
         except NeutronClientException as ex:
-            self._handle_not_found_exception(ex)
+            self.client_plugin().ignore_not_found(ex)
         else:
             return self._delete_task()
 
@@ -193,7 +194,7 @@ class EndpointGroup(neutron.NeutronResource):
         try:
             client.delete_endpoint_group(epg_id)
         except NeutronClientException as ex:
-            self._handle_not_found_exception(ex)
+            self.client_plugin().ignore_not_found(ex)
         else:
             return self._delete_task()
 
@@ -260,7 +261,7 @@ class L2Policy(neutron.NeutronResource):
         try:
             client.delete_l2_policy(l2_policy_id)
         except NeutronClientException as ex:
-            self._handle_not_found_exception(ex)
+            self.client_plugin().ignore_not_found(ex)
         else:
             return self._delete_task()
 
@@ -338,7 +339,7 @@ class L3Policy(neutron.NeutronResource):
         try:
             client.delete_l3_policy(l3_policy_id)
         except NeutronClientException as ex:
-            self._handle_not_found_exception(ex)
+            self.client_plugin().ignore_not_found(ex)
         else:
             return self._delete_task()
 
@@ -348,10 +349,249 @@ class L3Policy(neutron.NeutronResource):
                 self.resource_id, {'l3_policy': prop_diff})
 
 
+class PolicyClassifier(neutron.NeutronResource):
+
+    PROPERTIES = (
+        TENANT_ID, NAME, DESCRIPTION, PROTOCOL, PORT_RANGE,
+        DIRECTION
+    ) = (
+        'tenant_id', 'name', 'description', 'protocol', 'port_range',
+        'direction'
+    )
+
+    properties_schema = {
+        TENANT_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('Tenant id of the policy classifier.')
+        ),
+        NAME: properties.Schema(
+            properties.Schema.STRING,
+            _('Name of the policy classifier.'),
+            update_allowed=True
+        ),
+        DESCRIPTION: properties.Schema(
+            properties.Schema.STRING,
+            _('Description of the policy classifier.'),
+            update_allowed=True
+        ),
+        PROTOCOL: properties.Schema(
+            properties.Schema.STRING,
+            _('Protocol of traffic described by the policy classifier.'),
+            constraints=[
+                constraints.AllowedValues(['tcp', 'udp', 'icmp', None])
+            ],
+            update_allowed=True
+        ),
+        PORT_RANGE: properties.Schema(
+            properties.Schema.STRING,
+            _('Port range of traffic described by the policy classifier.'),
+            update_allowed=True
+        ),
+        DIRECTION: properties.Schema(
+            properties.Schema.STRING,
+            _('Direction of traffic described by the policy classifier.'),
+            constraints=[
+                constraints.AllowedValues(['in', 'out', 'bi', None])
+            ],
+            update_allowed=True
+        )
+    }
+
+    def _show_resource(self):
+        client = self.neutron()
+        pc_id = self.resource_id
+        return client.show_policy_classifier(pc_id)['policy_classifier']
+
+    def handle_create(self):
+        client = self.neutron()
+
+        props = {}
+        for key in self.properties:
+            if self.properties.get(key) is not None:
+                props[key] = self.properties.get(key)
+
+        policy_classifier = client.create_policy_classifier(
+            {'policy_classifier': props})['policy_classifier']
+
+        self.resource_id_set(policy_classifier['id'])
+
+    def handle_delete(self):
+
+        client = self.neutron()
+        pc_id = self.resource_id
+
+        try:
+            client.delete_policy_classifier(pc_id)
+        except NeutronClientException as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return self._delete_task()
+
+    def handle_update(self, json_snippet, tmpl_diff, prop_diff):
+        if prop_diff:
+            self.neutron().update_policy_classifier(
+                self.resource_id, {'policy_classifier': prop_diff})
+
+
+class PolicyAction(neutron.NeutronResource):
+
+    PROPERTIES = (
+        TENANT_ID, NAME, DESCRIPTION, ACTION_TYPE, ACTION_VALUE
+    ) = (
+        'tenant_id', 'name', 'description', 'action_type', 'action_value'
+    )
+
+    properties_schema = {
+        TENANT_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('Tenant id of the action.')
+        ),
+        NAME: properties.Schema(
+            properties.Schema.STRING,
+            _('Name of the action.'),
+            update_allowed=True
+        ),
+        DESCRIPTION: properties.Schema(
+            properties.Schema.STRING,
+            _('Description of the action.'),
+            update_allowed=True
+        ),
+        ACTION_TYPE: properties.Schema(
+            properties.Schema.STRING,
+            _('Type of action.'),
+            constraints=[
+                constraints.AllowedValues(['allow', 'redirect', None])
+            ],
+            update_allowed=True
+        ),
+        ACTION_VALUE: properties.Schema(
+            properties.Schema.STRING,
+            _('Value of the action.'),
+            update_allowed=True
+        )
+    }
+
+    def _show_resource(self):
+        client = self.neutron()
+        action_id = self.resource_id
+        return client.show_policy_action(action_id)['policy_action']
+
+    def handle_create(self):
+        client = self.neutron()
+
+        props = {}
+        for key in self.properties:
+            if self.properties.get(key) is not None:
+                props[key] = self.properties.get(key)
+
+        policy_action = client.create_policy_action(
+            {'policy_action': props})['policy_action']
+
+        self.resource_id_set(policy_action['id'])
+
+    def handle_delete(self):
+
+        client = self.neutron()
+        action_id = self.resource_id
+
+        try:
+            client.delete_policy_action(action_id)
+        except NeutronClientException as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return self._delete_task()
+
+    def handle_update(self, json_snippet, tmpl_diff, prop_diff):
+        if prop_diff:
+            self.neutron().update_policy_action(
+                self.resource_id, {'policy_action': prop_diff})
+
+
+class PolicyRule(neutron.NeutronResource):
+
+    PROPERTIES = (
+        TENANT_ID, NAME, DESCRIPTION, ENABLED, POLICY_CLASSIFIER_ID,
+        POLICY_ACTIONS
+    ) = (
+        'tenant_id', 'name', 'description', 'enabled', 'policy_classifier_id',
+        'policy_actions'
+    )
+
+    properties_schema = {
+        TENANT_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('Tenant id of the policy rule.')
+        ),
+        NAME: properties.Schema(
+            properties.Schema.STRING,
+            _('Name of the policy rule.'),
+            update_allowed=True
+        ),
+        DESCRIPTION: properties.Schema(
+            properties.Schema.STRING,
+            _('Description of the policy rule.'),
+            update_allowed=True
+        ),
+        ENABLED: properties.Schema(
+            properties.Schema.BOOLEAN,
+            _('State of policy rule.'),
+            default=True, update_allowed=True
+        ),
+        POLICY_CLASSIFIER_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('Classifier id of the policy rule.'),
+            required=True, update_allowed=True
+        ),
+        POLICY_ACTIONS: properties.Schema(
+            properties.Schema.LIST,
+            _('List of actions of the policy rule.'),
+            default=None, update_allowed=True
+        )
+    }
+
+    def _show_resource(self):
+        client = self.neutron()
+        rule_id = self.resource_id
+        return client.show_policy_rule(rule_id)['policy_rule']
+
+    def handle_create(self):
+        client = self.neutron()
+
+        props = {}
+        for key in self.properties:
+            if self.properties.get(key) is not None:
+                props[key] = self.properties.get(key)
+
+        policy_rule = client.create_policy_rule(
+            {'policy_rule': props})['policy_rule']
+
+        self.resource_id_set(policy_rule['id'])
+
+    def handle_delete(self):
+
+        client = self.neutron()
+        rule_id = self.resource_id
+
+        try:
+            client.delete_policy_rule(rule_id)
+        except NeutronClientException as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return self._delete_task()
+
+    def handle_update(self, json_snippet, tmpl_diff, prop_diff):
+        if prop_diff:
+            self.neutron().update_policy_rule(
+                self.resource_id, {'policy_rule': prop_diff})
+
+
 def resource_mapping():
     return {
         'OS::Neutron::Endpoint': Endpoint,
         'OS::Neutron::EndpointGroup': EndpointGroup,
         'OS::Neutron::L2Policy': L2Policy,
         'OS::Neutron::L3Policy': L3Policy,
+        'OS::Neutron::PolicyClassifier': PolicyClassifier,
+        'OS::Neutron::PolicyAction': PolicyAction,
+        'OS::Neutron::PolicyRule': PolicyRule
     }
