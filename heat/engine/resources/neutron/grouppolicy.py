@@ -30,9 +30,9 @@ class Endpoint(neutron.NeutronResource):
     )
 
     ATTRIBUTES = (
-        NEUTRON_PORT_ID
+        PORT_ID
     ) = (
-        'neutron_port_id'
+        'port_id'
     )
 
     properties_schema = {
@@ -59,7 +59,7 @@ class Endpoint(neutron.NeutronResource):
     }
 
     attributes_schema = {
-        NEUTRON_PORT_ID: attributes.Schema(
+        PORT_ID: attributes.Schema(
             _("Neutron port id of this endpoint")
         )
     }
@@ -84,8 +84,8 @@ class Endpoint(neutron.NeutronResource):
     def _resolve_attribute(self, name):
         client = self.neutron()
         ep_id = self.resource_id
-        if name == 'neutron_port_id':
-            return client.show_endpoint(ep_id)['endpoint']['neutron_port_id']
+        if name == 'port_id':
+            return client.show_endpoint(ep_id)['endpoint']['port_id']
         return super(Endpoint, self)._resolve_attribute(name)
 
     def handle_delete(self):
@@ -613,7 +613,7 @@ class Contract(neutron.NeutronResource):
         PARENT_ID: properties.Schema(
             properties.Schema.STRING,
             _('Parent id of the contract.'),
-            required=True, update_allowed=False
+            update_allowed=False
         ),
         CHILD_CONTRACTS: properties.Schema(
             properties.Schema.LIST,

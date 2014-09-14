@@ -284,10 +284,10 @@ class EndpointTest(HeatTestCase):
         rsrc = self.create_endpoint()
         neutronclient.Client.show_endpoint('5678').MultipleTimes(
         ).AndReturn(
-            {'endpoint': {'neutron_port_id': '1234'}})
+            {'endpoint': {'port_id': '1234'}})
         self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
-        self.assertEqual('1234', rsrc.FnGetAtt('neutron_port_id'))
+        self.assertEqual('1234', rsrc.FnGetAtt('port_id'))
         self.m.VerifyAll()
 
     def test_attribute_failed(self):
